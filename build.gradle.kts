@@ -10,6 +10,8 @@ java.sourceCompatibility = JavaVersion.VERSION_11
 
 repositories {
     mavenCentral()
+    maven(url = "https://packages.confluent.io/maven")
+
 }
 
 dependencies {
@@ -18,6 +20,9 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.13.+")
     implementation("org.apache.avro:avro:1.10.1")
     implementation("org.apache.kafka:kafka_2.12:2.8.1")
+
+    implementation("io.confluent:kafka-schema-registry-client:5.3.0")
+    implementation("io.confluent:kafka-avro-serializer:5.3.0")
     implementation("com.github.avro-kotlin.avro4k:avro4k-core:1.6.0")
 }
 
