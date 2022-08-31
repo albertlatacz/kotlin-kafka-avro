@@ -34,7 +34,7 @@ fun main() {
     val dataSchema = Avro.default.schema(Data.serializer())
     println("dataSchema = ${dataSchema.toString(true)}")
 
-    val register = registryClient.register(topic, dataSchema)
+    val register = registryClient.register("$topic-value", dataSchema)
     println("register = ${register}")
 
     val dataRecord = Avro.default.toRecord(Data.serializer(), Data("Name1", listOf(Item("Name2"))))
