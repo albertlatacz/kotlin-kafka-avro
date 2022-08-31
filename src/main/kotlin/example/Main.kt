@@ -1,10 +1,8 @@
 package example
 
 import com.github.avrokotlin.avro4k.Avro
-import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient
 import io.confluent.kafka.serializers.KafkaAvroSerializer
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 import org.apache.avro.generic.GenericRecord
 import org.apache.kafka.clients.consumer.Consumer
 import org.apache.kafka.clients.consumer.ConsumerConfig
@@ -13,9 +11,8 @@ import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.StringSerializer
-import java.util.Arrays
+import java.time.Duration
 import java.util.Properties
-
 
 @Serializable
 data class Item(val name: String)
@@ -23,11 +20,11 @@ data class Item(val name: String)
 @Serializable
 data class Data(val name: String, val list: List<Item>)
 
-
 fun main() {
-    val topic = "topic5"
     val schemaRegistryUrl = "http://localhost:8081"
     val bootstrapServersUrl = "localhost:9092"
+    val topic = "topic5"
+    val key = "key1"
 
     val dataSchema = Avro.default.schema(Data.serializer())
     println("dataSchema = ${dataSchema.toString(true)}")
@@ -46,45 +43,31 @@ fun main() {
 //    props["auto.register.schemas"] = false
 
     val producer = KafkaProducer<String, GenericRecord>(props)
-
-    val key = "key1"
-    val record = ProducerRecord(topic, key, dataRecord)
-
     try {
-        producer.send(record)
-    } catch (e: SerializationException) {
-        // may need to do something with it
-    } // When you're finished producing records, you can flush the producer to ensure it has all been written to Kafka and
-    // then close the producer to free its resources.
-    finally {
+        producer.send(ProducerRecord(topic, key, dataRecord))
+    } finally {
         producer.flush()
         producer.close()
     }
 
     // Consumer
-    val props2 = Properties()
+    val consumerProps = Properties()
+    consumerProps[ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG] = bootstrapServersUrl
+    consumerProps[ConsumerConfig.GROUP_ID_CONFIG] = "group1"
+    consumerProps[ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG] = "org.apache.kafka.common.serialization.StringDeserializer"
+    consumerProps[ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG] = "io.confluent.kafka.serializers.KafkaAvroDeserializer"
+    consumerProps[ConsumerConfig.AUTO_OFFSET_RESET_CONFIG] = "earliest"
+    consumerProps["schema.registry.url"] = schemaRegistryUrl
 
-    props2[ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG] = bootstrapServersUrl
-    props2[ConsumerConfig.GROUP_ID_CONFIG] = "group1"
-
-
-    props2[ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG] = "org.apache.kafka.common.serialization.StringDeserializer"
-    props2[ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG] = "io.confluent.kafka.serializers.KafkaAvroDeserializer"
-    props2["schema.registry.url"] = schemaRegistryUrl
-
-    props2[ConsumerConfig.AUTO_OFFSET_RESET_CONFIG] = "earliest"
-
-    val consumer: Consumer<String, GenericRecord> = KafkaConsumer(props2)
-    consumer.subscribe(Arrays.asList(topic))
-
-    try {
+    val consumer: Consumer<String, GenericRecord> = KafkaConsumer(consumerProps)
+    consumer.subscribe(listOf(topic))
+    consumer.use {
         while (true) {
-            val records = consumer.poll(100)
+            val records = it.poll(Duration.ofMillis(100))
             for (record in records) {
-                System.out.printf("offset = %d, key = %s, value = %s \n", record.offset(), record.key(), record.value())
+                val fromRecord = Avro.default.fromRecord(Data.serializer(), record.value())
+                System.out.printf("$fromRecord (offset = %d, key = %s, value = %s) \n", record.offset(), record.key(), record.value())
             }
         }
-    } finally {
-        consumer.close()
     }
 }
