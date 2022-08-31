@@ -73,3 +73,15 @@ services:
       CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
       CONFLUENT_METRICS_TOPIC_REPLICATION: 1
       PORT: 9021
+
+  redpanda:
+    image: docker.redpanda.com/vectorized/console:latest
+    hostname: redpanda
+    container_name: redpanda
+    depends_on:
+      - broker
+      - schema-registry
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_BROKERS: broker:29092
