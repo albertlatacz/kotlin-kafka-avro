@@ -4,6 +4,7 @@ import com.github.avrokotlin.avro4k.Avro
 import io.confluent.kafka.serializers.KafkaAvroSerializer
 import kotlinx.serialization.Serializable
 import org.apache.avro.generic.GenericRecord
+import org.apache.avro.generic.GenericRecordBuilder
 import org.apache.kafka.clients.consumer.Consumer
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.consumer.KafkaConsumer
@@ -27,13 +28,21 @@ fun main() {
     val key = "key1"
 
     val dataSchema = Avro.default.schema(Data.serializer())
+    val itemSchema = Avro.default.schema(Item.serializer())
     println("dataSchema = ${dataSchema.toString(true)}")
 
 //    val registryClient = CachedSchemaRegistryClient(schemaRegistryUrl, 10000)
 //    val register = registryClient.register("$topic-value", dataSchema)
 //    println("register = ${register}")
 
-    val dataRecord = Avro.default.toRecord(Data.serializer(), Data("Name1", listOf(Item("Name2"))))
+    val dataRecord1 = Avro.default.toRecord(Data.serializer(), Data("Name1", listOf(Item("Name2"))))
+
+    val dataRecord2 = GenericRecordBuilder(dataSchema).apply {
+        set("name", "Name3")
+        set("list", listOf(GenericRecordBuilder(itemSchema).apply {
+            set("name", "Name4")
+        }.build()))
+    }.build()
 
     val props = Properties()
     props[ProducerConfig.BOOTSTRAP_SERVERS_CONFIG] = bootstrapServersUrl
@@ -44,7 +53,8 @@ fun main() {
 
     val producer = KafkaProducer<String, GenericRecord>(props)
     try {
-        producer.send(ProducerRecord(topic, key, dataRecord))
+        producer.send(ProducerRecord(topic, key, dataRecord1))
+        producer.send(ProducerRecord(topic, key, dataRecord2))
     } finally {
         producer.flush()
         producer.close()
