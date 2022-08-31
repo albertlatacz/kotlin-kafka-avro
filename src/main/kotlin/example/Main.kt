@@ -34,19 +34,11 @@ fun main() {
     val dataSchemaRaw =
         """{"type":"record","name":"Data","namespace":"example","fields":[{"name":"name","type":"string"},{"name":"list","type":{"type":"array","items":$itemSchemaRaw}}]}"""
 
-    val dataAvro4KSchema = Avro.default.schema(Data.serializer())
-    val itemAvro4KSchema = Avro.default.schema(Item.serializer())
-    println("dataAvro4kSchema = ${dataAvro4KSchema.toString(true)}")
-
     val parser = Schema.Parser()
-    val dataParsedSchema = parser.parse(dataSchemaRaw)
-    val itemParsedSchema = parser.parse(itemSchemaRaw)
-
-
-    val dataSchema = dataParsedSchema
-    val itemSchema = itemParsedSchema
-//    val dataSchema = dataAvro4KSchema
-//    val itemSchema = itemAvro4KSchema
+    val dataSchema = parser.parse(dataSchemaRaw).also { println("schema:parsed:data = ${it.toString(true)}") }
+    val itemSchema = parser.parse(itemSchemaRaw).also { println("schema:parsed:item = ${it.toString(true)}") }
+//    val dataSchema = Avro.default.schema(Data.serializer()).also { println("schema:avro4k:data = ${it.toString(true)}") }
+//    val itemSchema = Avro.default.schema(Item.serializer()).also { println("schema:avro4k:item = ${it.toString(true)}") }
 
 
 //    val registryClient = CachedSchemaRegistryClient(schemaRegistryUrl, 10000)
