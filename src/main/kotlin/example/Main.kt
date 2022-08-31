@@ -25,17 +25,16 @@ data class Data(val name: String, val list: List<Item>)
 
 
 fun main() {
-    val topic = "topic4"
+    val topic = "topic5"
     val schemaRegistryUrl = "http://localhost:8081"
     val bootstrapServersUrl = "localhost:9092"
-
-    val registryClient = CachedSchemaRegistryClient(schemaRegistryUrl, 10000)
 
     val dataSchema = Avro.default.schema(Data.serializer())
     println("dataSchema = ${dataSchema.toString(true)}")
 
-    val register = registryClient.register("$topic-value", dataSchema)
-    println("register = ${register}")
+//    val registryClient = CachedSchemaRegistryClient(schemaRegistryUrl, 10000)
+//    val register = registryClient.register("$topic-value", dataSchema)
+//    println("register = ${register}")
 
     val dataRecord = Avro.default.toRecord(Data.serializer(), Data("Name1", listOf(Item("Name2"))))
 
@@ -44,13 +43,12 @@ fun main() {
     props[ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG] = StringSerializer::class.java
     props[ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG] = KafkaAvroSerializer::class.java
     props["schema.registry.url"] = schemaRegistryUrl
-    props["auto.register.schemas"] = false
+//    props["auto.register.schemas"] = false
 
     val producer = KafkaProducer<String, GenericRecord>(props)
 
     val key = "key1"
     val record = ProducerRecord(topic, key, dataRecord)
-
 
     try {
         producer.send(record)
