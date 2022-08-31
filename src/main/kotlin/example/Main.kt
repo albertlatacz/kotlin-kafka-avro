@@ -3,6 +3,7 @@ package example
 import com.github.avrokotlin.avro4k.Avro
 import io.confluent.kafka.serializers.KafkaAvroSerializer
 import kotlinx.serialization.Serializable
+import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import org.apache.avro.generic.GenericRecordBuilder
 import org.apache.kafka.clients.consumer.Consumer
@@ -27,9 +28,26 @@ fun main() {
     val topic = "topic5"
     val key = "key1"
 
+    val itemSchemaRaw =
+        """{"type":"record","name":"Item","fields":[{"name":"name","type":"string"}]}"""
+
+    val dataSchemaRaw =
+        """{"type":"record","name":"Data","namespace":"example","fields":[{"name":"name","type":"string"},{"name":"list","type":{"type":"array","items":$itemSchemaRaw}}]}"""
+
     val dataAvro4KSchema = Avro.default.schema(Data.serializer())
     val itemAvro4KSchema = Avro.default.schema(Item.serializer())
-    println("dataSchema = ${dataAvro4KSchema.toString(true)}")
+    println("dataAvro4kSchema = ${dataAvro4KSchema.toString(true)}")
+
+    val parser = Schema.Parser()
+    val dataParsedSchema = parser.parse(dataSchemaRaw)
+    val itemParsedSchema = parser.parse(itemSchemaRaw)
+
+
+    val dataSchema = dataParsedSchema
+    val itemSchema = itemParsedSchema
+//    val dataSchema = dataAvro4KSchema
+//    val itemSchema = itemAvro4KSchema
+
 
 //    val registryClient = CachedSchemaRegistryClient(schemaRegistryUrl, 10000)
 //    val register = registryClient.register("$topic-value", dataSchema)
@@ -37,9 +55,9 @@ fun main() {
 
     val dataRecord1 = Avro.default.toRecord(Data.serializer(), Data("Name1", listOf(Item("Name2"))))
 
-    val dataRecord2 = GenericRecordBuilder(dataAvro4KSchema).apply {
+    val dataRecord2 = GenericRecordBuilder(dataSchema).apply {
         set("name", "Name3")
-        set("list", listOf(GenericRecordBuilder(itemAvro4KSchema).apply {
+        set("list", listOf(GenericRecordBuilder(itemSchema).apply {
             set("name", "Name4")
         }.build()))
     }.build()
@@ -64,8 +82,10 @@ fun main() {
     val consumerProps = Properties()
     consumerProps[ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG] = bootstrapServersUrl
     consumerProps[ConsumerConfig.GROUP_ID_CONFIG] = "group1"
-    consumerProps[ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG] = "org.apache.kafka.common.serialization.StringDeserializer"
-    consumerProps[ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG] = "io.confluent.kafka.serializers.KafkaAvroDeserializer"
+    consumerProps[ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG] =
+        "org.apache.kafka.common.serialization.StringDeserializer"
+    consumerProps[ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG] =
+        "io.confluent.kafka.serializers.KafkaAvroDeserializer"
     consumerProps[ConsumerConfig.AUTO_OFFSET_RESET_CONFIG] = "earliest"
     consumerProps["schema.registry.url"] = schemaRegistryUrl
 
@@ -76,7 +96,12 @@ fun main() {
             val records = it.poll(Duration.ofMillis(100))
             for (record in records) {
                 val fromRecord = Avro.default.fromRecord(Data.serializer(), record.value())
-                System.out.printf("$fromRecord (offset = %d, key = %s, value = %s) \n", record.offset(), record.key(), record.value())
+                System.out.printf(
+                    "$fromRecord (offset = %d, key = %s, value = %s) \n",
+                    record.offset(),
+                    record.key(),
+                    record.value()
+                )
             }
         }
     }
