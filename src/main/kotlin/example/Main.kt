@@ -27,9 +27,9 @@ fun main() {
     val topic = "topic5"
     val key = "key1"
 
-    val dataSchema = Avro.default.schema(Data.serializer())
-    val itemSchema = Avro.default.schema(Item.serializer())
-    println("dataSchema = ${dataSchema.toString(true)}")
+    val dataAvro4KSchema = Avro.default.schema(Data.serializer())
+    val itemAvro4KSchema = Avro.default.schema(Item.serializer())
+    println("dataSchema = ${dataAvro4KSchema.toString(true)}")
 
 //    val registryClient = CachedSchemaRegistryClient(schemaRegistryUrl, 10000)
 //    val register = registryClient.register("$topic-value", dataSchema)
@@ -37,9 +37,9 @@ fun main() {
 
     val dataRecord1 = Avro.default.toRecord(Data.serializer(), Data("Name1", listOf(Item("Name2"))))
 
-    val dataRecord2 = GenericRecordBuilder(dataSchema).apply {
+    val dataRecord2 = GenericRecordBuilder(dataAvro4KSchema).apply {
         set("name", "Name3")
-        set("list", listOf(GenericRecordBuilder(itemSchema).apply {
+        set("list", listOf(GenericRecordBuilder(itemAvro4KSchema).apply {
             set("name", "Name4")
         }.build()))
     }.build()
