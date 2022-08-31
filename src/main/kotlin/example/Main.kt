@@ -23,16 +23,53 @@ data class Item(val name: String)
 data class Data(val name: String, val list: List<Item>)
 
 fun main() {
+    val autoRegisterSchemas = true
     val schemaRegistryUrl = "http://localhost:8081"
     val bootstrapServersUrl = "localhost:9092"
     val topic = "topic5"
     val key = "key1"
 
     val itemSchemaRaw =
-        """{"type":"record","name":"Item","fields":[{"name":"name","type":"string"}]}"""
+        """
+            {
+                "type":"record",
+                "name":"Item",
+                "fields":[
+                    {
+                        "name":"name",
+                        "type":"string"
+                    }
+                ]
+            }
+        """.trimIndent()
 
     val dataSchemaRaw =
-        """{"type":"record","name":"Data","namespace":"example","fields":[{"name":"name","type":"string"},{"name":"list","type":{"type":"array","items":$itemSchemaRaw}}]}"""
+        """
+            {
+                "type":"record",
+                "name":"Data",
+                "namespace":"example",
+                "fields":[
+                    {
+                        "name":"name",
+                        "type":"string"
+                    },
+                    
+                    {
+                        "name":"foo",
+                        "type":"string",
+                        "default": ""
+                    },
+                    {
+                        "name":"list",
+                        "type":{
+                            "type":"array",
+                            "items":$itemSchemaRaw
+                        }
+                    }
+                ]
+            }
+        """.trimIndent()
 
     val parser = Schema.Parser()
     val dataSchema = parser.parse(dataSchemaRaw).also { println("schema:parsed:data = ${it.toString(true)}") }
@@ -49,6 +86,7 @@ fun main() {
 
     val dataRecord2 = GenericRecordBuilder(dataSchema).apply {
         set("name", "Name3")
+        set("foo", "Foo")
         set("list", listOf(GenericRecordBuilder(itemSchema).apply {
             set("name", "Name4")
         }.build()))
@@ -59,7 +97,7 @@ fun main() {
     props[ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG] = StringSerializer::class.java
     props[ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG] = KafkaAvroSerializer::class.java
     props["schema.registry.url"] = schemaRegistryUrl
-//    props["auto.register.schemas"] = false
+    props["auto.register.schemas"] = autoRegisterSchemas
 
     val producer = KafkaProducer<String, GenericRecord>(props)
     try {
