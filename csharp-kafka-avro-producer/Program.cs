@@ -37,11 +37,13 @@ internal static class Program
                   }
                 } ]
             }");
-            
-        // Error below is caused by schema mismatch (missing namespace parameter) but doesn't explain the problem 
+
+        // Error below is caused by schema mismatch (missing namespace parameter) but doesn't explain the problem
         // error producing message: Confluent.Kafka.ProduceException`2[System.String,Avro.Generic.GenericRecord]: Local: Value serialization error
         //      ---> Avro.AvroException: GenericRecord required to write against record schema but found Avro.Generic.GenericRecord in field list
         //      ---> Avro.AvroException: GenericRecord required to write against record schema but found Avro.Generic.GenericRecord
+        // Make sure that sub-record schemas match loaded parent schema
+
         var itemSchema = (RecordSchema)RecordSchema.Parse(@"{
               ""type"" : ""record"",
               ""name"" : ""Item"",
@@ -51,7 +53,7 @@ internal static class Program
                 ""type"" : ""string""
               } ]
             }");
-            
+
         using var schemaRegistry =
             new CachedSchemaRegistryClient(new SchemaRegistryConfig { Url = schemaRegistryUrl });
         using var producer =
@@ -59,11 +61,11 @@ internal static class Program
                     new ProducerConfig { BootstrapServers = bootstrapServers })
                 .SetValueSerializer(new AvroSerializer<GenericRecord>(schemaRegistry))
                 .Build();
-        
+
         var item = new GenericRecord(itemSchema);
         item.Add("name", "Name5");
         var genericRecords = new[] { item };
-            
+
         var data = new GenericRecord(dataSchema);
         data.Add("foo", "Foo");
         data.Add("name", "Name6");
@@ -73,7 +75,7 @@ internal static class Program
         {
             var result = await producer.ProduceAsync(topicName,
                 new Message<string, GenericRecord> { Key = "key1", Value = data });
-                
+
             Console.WriteLine($"produced to: {result.TopicPartitionOffset}");
         }
         catch (ProduceException<string, GenericRecord> ex)
