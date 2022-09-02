@@ -8,4 +8,6 @@ classes/
 out/
 store/
 intellij-settings/
+csharp-kafka-avro-producer/obj
+csharp-kafka-avro-producer/bin
 **/*.actual
