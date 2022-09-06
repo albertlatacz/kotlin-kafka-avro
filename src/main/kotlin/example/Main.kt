@@ -6,7 +6,6 @@ import io.confluent.kafka.serializers.subject.TopicRecordNameStrategy
 import kotlinx.serialization.Serializable
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
-import org.apache.avro.generic.GenericRecordBuilder
 import org.apache.kafka.clients.consumer.Consumer
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.consumer.KafkaConsumer
@@ -24,7 +23,7 @@ sealed class SealedData
 data class Item(val name: String) : SealedData()
 
 @Serializable
-data class Data(val name: String, val list: List<Item>) :  SealedData()
+data class Data(val name: String, val list: List<Item>) : SealedData()
 
 fun main() {
     val autoRegisterSchemas = true
@@ -125,7 +124,6 @@ fun main() {
     consumerProps[ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG] =
         "io.confluent.kafka.serializers.KafkaAvroDeserializer"
     consumerProps[ConsumerConfig.AUTO_OFFSET_RESET_CONFIG] = "earliest"
-    consumerProps["value.subject.name.strategy"] = TopicRecordNameStrategy::class.java
     consumerProps["schema.registry.url"] = schemaRegistryUrl
 
     val consumer: Consumer<String, GenericRecord> = KafkaConsumer(consumerProps)
