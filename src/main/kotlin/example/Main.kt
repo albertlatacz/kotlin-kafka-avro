@@ -2,6 +2,7 @@ package example
 
 import com.github.avrokotlin.avro4k.Avro
 import io.confluent.kafka.serializers.KafkaAvroSerializer
+import io.confluent.kafka.serializers.subject.TopicRecordNameStrategy
 import kotlinx.serialization.Serializable
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
@@ -17,10 +18,13 @@ import java.time.Duration
 import java.util.Properties
 
 @Serializable
-data class Item(val name: String)
+sealed class SealedData
 
 @Serializable
-data class Data(val name: String, val list: List<Item>)
+data class Item(val name: String) : SealedData()
+
+@Serializable
+data class Data(val name: String, val list: List<Item>) :  SealedData()
 
 fun main() {
     val autoRegisterSchemas = true
@@ -82,27 +86,31 @@ fun main() {
 //    val register = registryClient.register("$topic-value", dataSchema)
 //    println("register = ${register}")
 
-    val dataRecord1 = Avro.default.toRecord(Data.serializer(), Data("Name1", listOf(Item("Name2"))))
+    val dataRecord1 = Avro.default.toRecord(SealedData.serializer(), Data("Name1", listOf(Item("Name2"))))
 
-    val dataRecord2 = GenericRecordBuilder(dataSchema).apply {
-        set("name", "Name3")
-        set("foo", "Foo")
-        set("list", listOf(GenericRecordBuilder(itemSchema).apply {
-            set("name", "Name4")
-        }.build()))
-    }.build()
+//    val dataRecord2 = GenericRecordBuilder(dataSchema).apply {
+//        set("name", "Name3")
+//        set("foo", "Foo")
+//        set("list", listOf(GenericRecordBuilder(itemSchema).apply {
+//            set("name", "Name4")
+//        }.build()))
+//    }.build()
+
+    val itemRecord = Avro.default.toRecord(SealedData.serializer(), Item("Name5"))
 
     val props = Properties()
     props[ProducerConfig.BOOTSTRAP_SERVERS_CONFIG] = bootstrapServersUrl
     props[ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG] = StringSerializer::class.java
     props[ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG] = KafkaAvroSerializer::class.java
+    props["value.subject.name.strategy"] = TopicRecordNameStrategy::class.java
     props["schema.registry.url"] = schemaRegistryUrl
     props["auto.register.schemas"] = autoRegisterSchemas
 
     val producer = KafkaProducer<String, GenericRecord>(props)
     try {
         producer.send(ProducerRecord(topic, key, dataRecord1))
-        producer.send(ProducerRecord(topic, key, dataRecord2))
+//        producer.send(ProducerRecord(topic, key, dataRecord2))
+        producer.send(ProducerRecord(topic, key, itemRecord))
     } finally {
         producer.flush()
         producer.close()
@@ -117,6 +125,7 @@ fun main() {
     consumerProps[ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG] =
         "io.confluent.kafka.serializers.KafkaAvroDeserializer"
     consumerProps[ConsumerConfig.AUTO_OFFSET_RESET_CONFIG] = "earliest"
+    consumerProps["value.subject.name.strategy"] = TopicRecordNameStrategy::class.java
     consumerProps["schema.registry.url"] = schemaRegistryUrl
 
     val consumer: Consumer<String, GenericRecord> = KafkaConsumer(consumerProps)
@@ -125,12 +134,13 @@ fun main() {
         while (true) {
             val records = it.poll(Duration.ofMillis(100))
             for (record in records) {
-                val fromRecord = Avro.default.fromRecord(Data.serializer(), record.value())
+                val fromRecord = Avro.default.fromRecord(SealedData.serializer(), record.value())
                 System.out.printf(
-                    "$fromRecord (offset = %d, key = %s, value = %s) \n",
+                    "$fromRecord (offset = %d, key = %s, value = %s, %s) \n",
                     record.offset(),
                     record.key(),
-                    record.value()
+                    record.value(),
+                    record
                 )
             }
         }
